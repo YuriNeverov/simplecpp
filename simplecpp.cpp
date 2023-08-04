@@ -36,6 +36,7 @@
 #include <sstream> // IWYU pragma: keep
 #include <stack>
 #include <stdexcept>
+#include <string>
 #if __cplusplus >= 201103L
 #include <unordered_map>
 #endif
@@ -2974,6 +2975,9 @@ static std::string openHeaderIncludePath(std::ifstream &f, const simplecpp::DUI 
 
 static std::string openHeader(std::ifstream &f, const simplecpp::DUI &dui, const std::string &sourcefile, const std::string &header, bool systemheader)
 {
+    /// YuriNeverov: otherwise fails on #include "/dev/fd/0"
+    if (header.size() >= 5 && header.substr(0, 5) == "/dev/")
+        return "";
     if (isAbsolutePath(header))
         return openHeader(f, header);
 
@@ -3152,7 +3156,7 @@ static std::string getTimeDefine(struct tm *timep)
     return std::string("\"").append(buf).append("\"");
 }
 
-void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenList &rawtokens, std::vector<std::string> &files, std::map<std::string, simplecpp::TokenList *> &filedata, const simplecpp::DUI &dui, simplecpp::OutputList *outputList, std::list<simplecpp::MacroUsage> *macroUsage, std::list<simplecpp::IfCond> *ifCond)
+void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenList &rawtokens, std::vector<std::string> &files, std::map<std::string, simplecpp::TokenList *> &filedata, const simplecpp::DUI &dui, simplecpp::OutputList *outputList, std::list<simplecpp::MacroUsage> *macroUsage, std::list<simplecpp::IfCond> *ifCond, int maxLoadCount)
 {
 #ifdef SIMPLECPP_WINDOWS
     if (dui.clearIncludeCache)
@@ -3234,6 +3238,8 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     }
 
     std::map<std::string, std::list<Location> > maybeUsedMacros;
+
+    int loadCount = 0;
 
     for (const Token *rawtok = nullptr; rawtok || !includetokenstack.empty();) {
         if (rawtok == nullptr) {
@@ -3361,6 +3367,17 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
                         TokenList * const tokens = new TokenList(f, files, header2, outputList);
                         filedata[header2] = tokens;
                     }
+                }
+                /// YuriNeverov: otherwise it can grow somewhat exponentially in include cycles, I guess?
+                if (maxLoadCount >= 0 && ++loadCount > maxLoadCount) {
+                    if (outputList) {
+                        simplecpp::Output out(files);
+                        out.type = Output::INCLUDE_NESTED_TOO_DEEPLY;
+                        out.location = rawtok->location;
+                        out.msg = "Too many header loads (more than " + std::to_string(maxLoadCount) + ")";
+                        outputList->push_back(out);
+                    }
+                    break;
                 }
                 if (header2.empty()) {
                     if (outputList) {
