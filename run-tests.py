@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+from pathlib import Path
+
 def cleanup(out):
   ret = ''
   for s in out.decode('utf-8').split('\n'):
@@ -16,7 +18,8 @@ def cleanup(out):
 commands = []
 
 for f in sorted(glob.glob(os.path.expanduser('testsuite/clang-preprocessor-tests/*.c*'))):
-  for line in open(f, 'rt'):
+  f = Path(f).absolute().as_posix()
+  for line in open(f, 'rt', encoding='utf-8'):
     if line.startswith('// RUN: %clang_cc1 '):
       cmd = ''
       for arg in line[19:].split():
@@ -27,6 +30,7 @@ for f in sorted(glob.glob(os.path.expanduser('testsuite/clang-preprocessor-tests
         if not newcmd in commands:
           commands.append(cmd[1:] + ' ' + f)
 for f in sorted(glob.glob(os.path.expanduser('testsuite/gcc-preprocessor-tests/*.c*'))):
+  f = Path(f).absolute().as_posix()
   commands.append('-E ' + f)
 
 # skipping tests..

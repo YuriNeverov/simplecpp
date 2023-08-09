@@ -3,6 +3,13 @@ all:	testrunner simplecpp
 CXXFLAGS = -Wall -Wextra -pedantic -Wcast-qual -Wfloat-equal -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wundef -Wno-multichar -Wold-style-cast -std=c++0x -g
 LDFLAGS = -g
 
+PYTHON3_OK=$(shell python3 -c 'print("Ok")')
+ifeq ("Ok", "$(PYTHON3_OK)")
+	PYTHON=python3
+else
+	PYTHON=python
+endif
+
 %.o: %.cpp	simplecpp.h
 	$(CXX) $(CXXFLAGS) -c $<
 
@@ -11,10 +18,9 @@ testrunner:	test.o	simplecpp.o
 	$(CXX) $(LDFLAGS) simplecpp.o test.o -o testrunner
 
 test:	testrunner	simplecpp
-	# The -std=c++03 makes sure that simplecpp.cpp is C++03 conformant. We don't require a C++11 compiler
-	g++ -std=c++03 -fsyntax-only simplecpp.cpp
+	g++ -fsyntax-only simplecpp.cpp
 	./testrunner
-	python3 run-tests.py
+	$(PYTHON) run-tests.py
 
 selfcheck:	simplecpp
 	./selfcheck.sh
