@@ -1,6 +1,6 @@
 all:	testrunner simplecpp
 
-CXXFLAGS = -Wall -Wextra -pedantic -Wcast-qual -Wfloat-equal -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wundef -Wno-multichar -Wold-style-cast -std=c++0x -g
+CXXFLAGS = -Wall -Wextra -pedantic -Wcast-qual -Wfloat-equal -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wundef -Wno-multichar -Wold-style-cast -std=c++14 -g
 LDFLAGS = -g
 
 PYTHON3_OK=$(shell python3 -c 'print("Ok")')

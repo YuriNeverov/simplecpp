@@ -121,26 +121,24 @@ int main(int argc, char **argv)
     // Perform preprocessing
     simplecpp::OutputList outputList;
     std::vector<std::string> files;
-    simplecpp::TokenList *rawtokens;
-    if (use_istream) {
-        std::ifstream f(filename);
-        if (!f.is_open()) {
-            std::cout << "error: could not open file '" << filename << "'" << std::endl;
-            std::exit(1);
+    simplecpp::TokenList rawtokens = [&](){
+        if (use_istream) {
+            std::ifstream f(filename);
+            if (!f.is_open()) {
+                std::cout << "error: could not open file '" << filename << "'" << std::endl;
+                std::exit(1);
+            }
+            return simplecpp::TokenList(f, files,filename,&outputList);
         }
-        rawtokens = new simplecpp::TokenList(f, files,filename,&outputList);
-    }
-    else {
-        rawtokens = new simplecpp::TokenList(filename,files,&outputList);
-    }
-    rawtokens->removeComments();
-    std::map<std::string, simplecpp::TokenList*> included = simplecpp::load(*rawtokens, files, dui, &outputList);
-    for (std::pair<std::string, simplecpp::TokenList *> i : included)
+        return simplecpp::TokenList(filename,files,&outputList);
+    }();
+    rawtokens.removeComments();
+    // TODO (YuriNeverov): Fix 4 tests in simplecpp::load
+    std::map<std::string, std::unique_ptr<simplecpp::TokenList>> included = simplecpp::load(rawtokens, files, dui, &outputList);
+    for (std::pair<const std::string, std::unique_ptr<simplecpp::TokenList>> &i : included)
         i.second->removeComments();
     simplecpp::TokenList outputTokens(files);
-    simplecpp::preprocess(outputTokens, *rawtokens, files, included, dui, &outputList);
-    delete rawtokens;
-    rawtokens = nullptr;
+    simplecpp::preprocess(outputTokens, rawtokens, files, included, dui, &outputList);
 
     // Output
     if (!quiet) {

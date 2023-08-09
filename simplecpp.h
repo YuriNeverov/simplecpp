@@ -24,6 +24,7 @@
 #include <istream>
 #include <list>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -142,7 +143,7 @@ namespace simplecpp {
         bool number;
         Location location;
         Token *previous;
-        Token *next;
+        std::unique_ptr<Token> next;
 
         const Token *previousSkipComments() const {
             const Token *tok = this->previous;
@@ -152,9 +153,9 @@ namespace simplecpp {
         }
 
         const Token *nextSkipComments() const {
-            const Token *tok = this->next;
+            const Token *tok = this->next.get();
             while (tok && tok->comment)
-                tok = tok->next;
+                tok = tok->next.get();
             return tok;
         }
 
@@ -220,7 +221,7 @@ namespace simplecpp {
         bool empty() const {
             return !frontToken;
         }
-        void push_back(Token *tok);
+        void push_back(std::unique_ptr<Token> tok);
 
         void dump() const;
         std::string stringify() const;
@@ -231,11 +232,11 @@ namespace simplecpp {
         void removeComments();
 
         Token *front() {
-            return frontToken;
+            return frontToken.get();
         }
 
         const Token *cfront() const {
-            return frontToken;
+            return frontToken.get();
         }
 
         Token *back() {
@@ -250,29 +251,27 @@ namespace simplecpp {
             if (!tok)
                 return;
             Token * const prev = tok->previous;
-            Token * const next = tok->next;
+            if (tok->next)
+                tok->next->previous = prev;
             if (prev)
-                prev->next = next;
-            if (next)
-                next->previous = prev;
-            if (frontToken == tok)
-                frontToken = next;
+                prev->next = std::move(tok->next);
+            else if (frontToken.get() == tok)
+                frontToken = std::move(tok->next);
             if (backToken == tok)
                 backToken = prev;
-            delete tok;
         }
 
         void takeTokens(TokenList &other) {
             if (!other.frontToken)
                 return;
             if (!frontToken) {
-                frontToken = other.frontToken;
+                frontToken = std::move(other.frontToken);
             } else {
-                backToken->next = other.frontToken;
                 other.frontToken->previous = backToken;
+                backToken->next = std::move(other.frontToken);
             }
             backToken = other.backToken;
-            other.frontToken = other.backToken = nullptr;
+            other.backToken = nullptr;
         }
 
         /** sizeof(T) */
@@ -298,7 +297,7 @@ namespace simplecpp {
 
         unsigned int fileIndex(const std::string &filename);
 
-        Token *frontToken;
+        std::unique_ptr<Token> frontToken;
         Token *backToken;
         std::vector<std::string> &files;
     };
@@ -336,7 +335,7 @@ namespace simplecpp {
 
     SIMPLECPP_LIB long long characterLiteralToLL(const std::string& str);
 
-    SIMPLECPP_LIB std::map<std::string, TokenList*> load(const TokenList &rawtokens, std::vector<std::string> &filenames, const DUI &dui, OutputList *outputList = nullptr);
+    SIMPLECPP_LIB std::map<std::string, std::unique_ptr<TokenList>> load(const TokenList &rawtokens, std::vector<std::string> &filenames, const DUI &dui, OutputList *outputList = nullptr);
 
     /**
      * Preprocess
@@ -350,12 +349,12 @@ namespace simplecpp {
      * @param macroUsage output: macro usage
      * @param ifCond output: #if/#elif expressions
      */
-    SIMPLECPP_LIB void preprocess(TokenList &output, const TokenList &rawtokens, std::vector<std::string> &files, std::map<std::string, TokenList*> &filedata, const DUI &dui, OutputList *outputList = nullptr, std::list<MacroUsage> *macroUsage = nullptr, std::list<IfCond> *ifCond = nullptr, int maxLoadCount = -1);
+    SIMPLECPP_LIB void preprocess(TokenList &output, const TokenList &rawtokens, std::vector<std::string> &files, std::map<std::string, std::unique_ptr<TokenList>> &filedata, const DUI &dui, OutputList *outputList = nullptr, std::list<MacroUsage> *macroUsage = nullptr, std::list<IfCond> *ifCond = nullptr, int maxLoadCount = -1);
 
     /**
      * Deallocate data
      */
-    SIMPLECPP_LIB void cleanup(std::map<std::string, TokenList*> &filedata);
+    SIMPLECPP_LIB void cleanup(std::map<std::string, std::unique_ptr<TokenList>> &filedata);
 
     /** Simplify path */
     SIMPLECPP_LIB std::string simplifyPath(std::string path);
