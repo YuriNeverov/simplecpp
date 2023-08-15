@@ -1554,6 +1554,14 @@ namespace simplecpp {
             return usageList;
         }
 
+        std::list<Location> &&moveUsageList() {
+            return std::move(usageList);
+        }
+
+        void takeUsageList(std::list<Location> &&list) {
+            usageList = std::move(list);
+        }
+
         /** is this a function like macro */
         bool functionLike() const {
             return nameTokDef->next &&
@@ -3238,6 +3246,7 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     }
 
     std::map<std::string, std::list<Location> > maybeUsedMacros;
+    std::map<std::string, Macro> deletedMacros;
 
     int loadCount = 0;
 
@@ -3561,8 +3570,14 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
                     const Token *tok = rawtok->next.get();
                     while (sameline(rawtok,tok) && tok->comment)
                         tok = tok->next.get();
-                    if (sameline(rawtok, tok))
-                        macros.erase(tok->str());
+                    if (sameline(rawtok, tok)) {
+                        if (auto it = macros.find(tok->str()); it != macros.end()) {
+                            std::list<Location> locs = it->second.moveUsageList();
+                            if (auto emplaced = deletedMacros.emplace(it->first, std::move(it->second)); emplaced.second)
+                                emplaced.first->second.takeUsageList(std::move(locs));
+                            macros.erase(it);
+                        }
+                    }
                 }
             } else if (ifstates.top() == True && rawtok->str() == PRAGMA && rawtok->next && rawtok->next->str() == ONCE && sameline(rawtok,rawtok->next.get())) {
                 pragmaOnce.insert(rawtok->location.file());
@@ -3612,6 +3627,11 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     }
 
     if (macroUsage) {
+        for (auto &[k, v] : deletedMacros) {
+            auto locs = v.moveUsageList();
+            if (auto emplaced = macros.emplace(k, std::move(v)); emplaced.second)
+                emplaced.first->second.takeUsageList(std::move(locs));
+        }
         for (simplecpp::MacroMap::const_iterator macroIt = macros.begin(); macroIt != macros.end(); ++macroIt) {
             const Macro &macro = macroIt->second;
             std::list<Location> usage = macro.usage();
