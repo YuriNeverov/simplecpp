@@ -3164,7 +3164,7 @@ static std::string getTimeDefine(struct tm *timep)
     return std::string("\"").append(buf).append("\"");
 }
 
-void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenList &rawtokens, std::vector<std::string> &files, std::map<std::string, std::unique_ptr<simplecpp::TokenList>> &filedata, const simplecpp::DUI &dui, simplecpp::OutputList *outputList, std::list<simplecpp::MacroUsage> *macroUsage, std::list<simplecpp::IfCond> *ifCond, int maxLoadCount)
+void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenList &rawtokens, std::vector<std::string> &files, std::map<std::string, std::unique_ptr<simplecpp::TokenList>> &filedata, const simplecpp::DUI &dui, simplecpp::OutputList *outputList, std::list<simplecpp::MacroUsage> *macroUsage, std::list<simplecpp::IfCond> *ifCond, int maxLoadCount, bool ignoreErrors)
 {
 #ifdef SIMPLECPP_WINDOWS
     if (dui.clearIncludeCache)
@@ -3293,7 +3293,7 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
                     err.msg = '#' + rawtok->str() + ' ' + err.msg;
                     outputList->push_back(err);
                 }
-                if (rawtok->str() == ERROR) {
+                if (!ignoreErrors && rawtok->str() == ERROR) {
                     output.clear();
                     return;
                 }
