@@ -3069,8 +3069,8 @@ std::map<std::string, std::unique_ptr<simplecpp::TokenList>> simplecpp::load(con
             continue;
         }
 
-        ret[filename] = std::move(tokenlist);
         filelist.push_back(tokenlist->front());
+        ret[filename] = std::move(tokenlist);
     }
 
     for (const Token *rawtok = rawtokens.cfront(); rawtok || !filelist.empty(); rawtok = rawtok ? rawtok->next.get() : nullptr) {
@@ -3104,9 +3104,10 @@ std::map<std::string, std::unique_ptr<simplecpp::TokenList>> simplecpp::load(con
         f.close();
 
         std::unique_ptr<simplecpp::TokenList> tokens = std::make_unique<TokenList>(header2, filenames, outputList);
-        ret[header2] = std::move(tokens);
+
         if (tokens->front())
             filelist.push_back(tokens->front());
+        ret[header2] = std::move(tokens);
     }
 
     return ret;
